@@ -1,0 +1,1 @@
+# Este es un proyecto de backend para la gestión de usuarios y datos médicos multimodales.
