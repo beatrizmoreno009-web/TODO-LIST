@@ -1,11 +1,12 @@
+
 const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI); // quitar options
-    console.log(`MongoDB connected: ${conn.connection.name}`);  // usar comillas invertidas
+    const conn = await mongoose.connect(process.env.MONGO_URI);
+    console.log(`MongoDB conectado: ${conn.connection.name}`);
   } catch (err) {
-    console.error("MongoDB connection error:", err.message);
+    console.error("Error al conectar a MongoDB:", err.message);
     process.exit(1);
   }
 };
