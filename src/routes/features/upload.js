@@ -1,139 +1,113 @@
 const express = require("express");
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-const Feature = require("../../models/featureModel"); 
+const Paciente = require("../../models/pacienteModel");
 
 const router = express.Router();
 
-// Configuración de almacenamiento con multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) =>
-    cb(null, Date.now() + path.extname(file.originalname))
-});
+// Configuración: multer en memoria (archivos no se guardan en disco)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
-// Filtro de tipos de archivo permitidos
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif|pdf|csv|txt/;
-  const ext = path.extname(file.originalname).toLowerCase();
-  if (allowedTypes.test(ext)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Tipo de archivo no permitido. Solo imágenes, PDFs, CSV o TXT."));
-  }
-};
+// Campos permitidos para los archivos multimedia
+const camposPermitidos = ["imagenFondoOjo", "senalPPG", "pdfReport"];
 
-const upload = multer({ storage, fileFilter });
-
-// Utilidad para borrar archivo físico
-const deleteFile = (filename) => {
-  if (!filename) return;
-  const filePath = path.join(__dirname, "../../uploads/", filename);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-  }
-};
-
-// GET: Obtener archivos multimedia asociados a un paciente
+// GET: Obtener info general (sin datos binarios)
 router.get("/:id", async (req, res) => {
   try {
-    const paciente = await Feature.findById(req.params.id);
+    const paciente = await Paciente.findById(req.params.id).select("-imagenFondoOjo.data -senalPPG.data -pdfReport.data");
     if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
-
-    res.json({
-      imagenFondoOjo: paciente.imagenFondoOjo || null,
-      senalPPG: paciente.senalPPG || null,
-      pdfReport: paciente.pdfReport || null,
-    });
+    res.json(paciente);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// POST: Subir nuevo archivo (imagen, PDF, señal) para un campo específico
+// GET: Descargar archivo multimedia (imagenFondoOjo, senalPPG, pdfReport)
+router.get("/:id/:campo", async (req, res) => {
+  try {
+    const { id, campo } = req.params;
+    if (!camposPermitidos.includes(campo)) {
+      return res.status(400).json({ message: "Campo inválido" });
+    }
+    const paciente = await Paciente.findById(id);
+    if (!paciente || !paciente[campo] || !paciente[campo].data) {
+      return res.status(404).json({ message: "Archivo no encontrado" });
+    }
+    res.contentType(paciente[campo].contentType);
+    res.send(paciente[campo].data);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST: Subir un nuevo archivo (imagen, PPG o PDF)
 router.post("/:id", upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "No se subió ningún archivo" });
-
-    const paciente = await Feature.findById(req.params.id);
-    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
-
     const { campo } = req.body;
-    const camposPermitidos = ["imagenFondoOjo", "senalPPG", "pdfReport"];
-
     if (!camposPermitidos.includes(campo)) {
-      deleteFile(req.file.filename);
-      return res.status(400).json({ message: "Campo inválido para archivo" });
+      return res.status(400).json({ message: "Campo inválido" });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: "No se subió ningún archivo" });
     }
 
-    // Borrar archivo anterior si existía
-    if (paciente[campo]) deleteFile(paciente[campo]);
+    const paciente = await Paciente.findById(req.params.id);
+    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
 
-    // Guardar nuevo archivo
-    paciente[campo] = req.file.filename;
+    paciente[campo] = {
+      data: req.file.buffer,
+      contentType: req.file.mimetype
+    };
+
     await paciente.save();
-
-    res.status(201).json({
-      message: `Archivo ${campo} subido correctamente`,
-      file: req.file.filename
-    });
+    res.status(201).json({ message: `Archivo ${campo} guardado correctamente` });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// PUT: Actualizar archivo existente
+// PUT: Actualizar un archivo existente
 router.put("/:id", upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "No se subió ningún archivo" });
-
-    const paciente = await Feature.findById(req.params.id);
-    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
-
     const { campo } = req.body;
-    const camposPermitidos = ["imagenFondoOjo", "senalPPG", "pdfReport"];
-
     if (!camposPermitidos.includes(campo)) {
-      deleteFile(req.file.filename);
-      return res.status(400).json({ message: "Campo inválido para archivo" });
+      return res.status(400).json({ message: "Campo inválido" });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: "No se subió ningún archivo" });
     }
 
-    // Borrar archivo anterior si existía
-    if (paciente[campo]) deleteFile(paciente[campo]);
+    const paciente = await Paciente.findById(req.params.id);
+    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
 
-    paciente[campo] = req.file.filename;
+    paciente[campo] = {
+      data: req.file.buffer,
+      contentType: req.file.mimetype
+    };
+
     await paciente.save();
-
-    res.json({
-      message: `Archivo ${campo} actualizado correctamente`,
-      file: req.file.filename
-    });
+    res.json({ message: `Archivo ${campo} actualizado correctamente` });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// DELETE: Eliminar archivo de un campo
+// DELETE: Eliminar archivo de un campo específico
 router.delete("/:id", async (req, res) => {
   try {
-    const paciente = await Feature.findById(req.params.id);
-    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
-
     const { campo } = req.body;
-    const camposPermitidos = ["imagenFondoOjo", "senalPPG", "pdfReport"];
-
     if (!camposPermitidos.includes(campo)) {
       return res.status(400).json({ message: "Campo inválido para eliminación" });
     }
 
-    if (!paciente[campo]) {
-      return res.status(400).json({ message: "No hay archivo para eliminar en ese campo" });
+    const paciente = await Paciente.findById(req.params.id);
+    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
+
+    if (!paciente[campo] || !paciente[campo].data) {
+      return res.status(400).json({ message: "No hay archivo que eliminar en este campo" });
     }
 
-    // Eliminar físicamente
-    deleteFile(paciente[campo]);
-    paciente[campo] = "";
+    paciente[campo] = undefined;
     await paciente.save();
 
     res.json({ message: `Archivo ${campo} eliminado correctamente` });

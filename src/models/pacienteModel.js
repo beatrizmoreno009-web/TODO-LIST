@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const featureSchema = new mongoose.Schema({
+const pacienteSchema = new mongoose.Schema({
   // Datos básicos del paciente
   nombre: { type: String, required: true },
   primerApellido: { type: String, required: true },
@@ -32,14 +32,22 @@ const featureSchema = new mongoose.Schema({
     hypertension: Boolean
   },
 
-  // Archivos multimedia
-  imagenFondoOjo: { type: String, default: "" },  // nombre o ruta del archivo
-  senalPPG: { type: String, default: "" },        // nombre o ruta del archivo
-  pdfReport: { type: String, default: "" },       // nombre o ruta del archivo PDF
+imagenFondoOjo: {
+    data: { type: Buffer, default: null },
+    contentType: { type: String, default: null }
+  },
+  senalPPG: {
+    data: { type: Buffer, default: null },
+    contentType: { type: String, default: null }
+  },
+  pdfReport: {
+    data: { type: Buffer, default: null },
+    contentType: { type: String, default: null }
+  },
 
   // Asociación con médico (usuario)
   medico: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
-  
+
 }, { timestamps: true });
 
-module.exports = mongoose.model("Feature", featureSchema);
+module.exports = mongoose.model("Paciente", pacienteSchema);

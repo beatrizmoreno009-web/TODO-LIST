@@ -1,13 +1,13 @@
 const express = require("express");
-const Feature = require("../models/featureModel");
+const Paciente = require("../models/pacienteModel");
 const router = express.Router();
 
 // Crear registro de características
 router.post("/", async (req, res) => {
   try {
-    const feature = new Feature(req.body);
-    await feature.save();
-    res.status(201).json(feature);
+    const paciente = new Paciente(req.body);
+    await paciente.save();
+    res.status(201).json(paciente);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -15,14 +15,14 @@ router.post("/", async (req, res) => {
 
 // Obtener todas las características
 router.get("/", async (req, res) => {
-  const features = await Feature.find();
-  res.json(features);
+  const paciente = await Paciente.find();
+  res.json(paciente);
 });
 
 // Actualizar características
 router.put("/:id", async (req, res) => {
   try {
-    const updated = await Feature.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await Paciente.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updated);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -32,7 +32,7 @@ router.put("/:id", async (req, res) => {
 // Eliminar características
 router.delete("/:id", async (req, res) => {
   try {
-    await Feature.findByIdAndDelete(req.params.id);
+    await Paciente.findByIdAndDelete(req.params.id);
     res.json({ message: "Registro de características eliminado correctamente" });
   } catch (err) {
     res.status(400).json({ message: err.message });

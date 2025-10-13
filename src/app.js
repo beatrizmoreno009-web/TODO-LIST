@@ -4,7 +4,7 @@ const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
 
-dotenv.config(); // ✅ Ahora sí, cargamos las variables de entorno
+dotenv.config(); // cargamos las variables de entorno
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,8 +23,8 @@ connectDB();
 // Rutas principales
 app.use("/api/users", require("./routes/users"));
 app.use("/api/datasets", require("./routes/datasets"));
-app.use("/api/features", require("./routes/features")); // Pacientes
-app.use("/api/features/upload", require("./routes/features/upload")); // Archivos multimedia (PDF, imagen, señal)
+app.use("/api/paciente", require("./routes/paciente")); // Pacientes
+app.use("/api/paciente/upload", require("./routes/features/upload")); // Archivos multimedia (PDF, imagen, señal)
 
 // Ruta raíz
 app.get("/", (req, res) => res.send("DataMedAI API funcionando correctamente"));
