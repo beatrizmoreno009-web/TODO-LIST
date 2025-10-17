@@ -23,7 +23,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Rutas de autenticación
 
-app.use("/api/auth", require("./routes/auth")); // <-- ¡IMPORTANTE!
+app.use("/api/auth", require("./routes/auth")); 
 
 // Rutas protegidas
 
