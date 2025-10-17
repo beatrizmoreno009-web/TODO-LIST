@@ -1,52 +1,50 @@
 const express = require("express");
 const User = require("../models/userModel");
+const { protect } = require("../middleware/authMiddleware");
+const { isAdmin } = require("../middleware/roleMiddleware");
+const bcrypt = require("bcryptjs");
 const router = express.Router();
 
-// Crear usuario
-router.post("/", async (req, res) => {
-  try {
-    const { nombre, email, contraseña, rol } = req.body;
-    if (!nombre || !email || !contraseña)
-      return res.status(400).json({ message: "Faltan campos requeridos" });
-
-    const user = new User({ nombre, email, contraseña, rol });
-    await user.save();
-    res.status(201).json(user);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+// Crear usuario (solo administrador)
+router.post("/", protect, isAdmin, async (req, res) => {
+  const { nombre, email, contraseña, rol } = req.body;
+  if (!nombre || !email || !contraseña) {
+    return res.status(400).json({ message: "Faltan campos requeridos" });
   }
+  const existe = await User.findOne({ email });
+  if (existe) {
+    return res.status(400).json({ message: "Email ya registrado" });
+  }
+  const salt = await bcrypt.genSalt(10);
+  const hashed = await bcrypt.hash(contraseña, salt);
+
+  const user = new User({ nombre, email, contraseña: hashed, rol });
+  await user.save();
+  const userResponse = user.toObject();
+  delete userResponse.contraseña;
+
+  res.status(201).json(userResponse);
 });
 
-// Obtener todos los usuarios
-router.get("/", async (req, res) => {
-  try {
-    const users = await User.find();
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
+// Obtener todos los usuarios (solo admin)
+router.get("/", protect, isAdmin, async (req, res) => {
+  const users = await User.find().select("-contraseña");
+  res.json(users);
 });
 
-// Actualizar usuario
-router.put("/:id", async (req, res) => {
-  try {
-    const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json(updated);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
+// Actualizar usuario (solo admin)
+router.put("/:id", protect, isAdmin, async (req, res) => {
+  // Podrías permitir que el usuario se actualice a sí mismo, pero aquí lo dejamos solo admin
+  const updated = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).select("-contraseña");
+  if (!updated) return res.status(404).json({ message: "Usuario no encontrado" });
+  res.json(updated);
 });
 
-// Eliminar usuario
-router.delete("/:id", async (req, res) => {
-  try {
-    const deleted = await User.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json({ message: "Usuario eliminado correctamente" });
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
+// Eliminar usuario (solo admin)
+router.delete("/:id", protect, isAdmin, async (req, res) => {
+  const deleted = await User.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: "Usuario no encontrado" });
+  res.json({ message: "Usuario eliminado correctamente" });
 });
 
 module.exports = router;

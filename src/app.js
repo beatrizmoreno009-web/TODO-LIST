@@ -4,30 +4,40 @@ const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
 
-dotenv.config(); // cargamos las variables de entorno
+// Cargar variables de entorno
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Conectar a la base de datos
+connectDB();
+
+// Middleware global
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Carpeta pública para archivos subidos
+// Servir archivos estáticos subidos
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Conexión a la base de datos
-connectDB();
+// Rutas de autenticación
 
-// Rutas principales
+app.use("/api/auth", require("./routes/auth")); // <-- ¡IMPORTANTE!
+
+// Rutas protegidas
+
 app.use("/api/users", require("./routes/users"));
 app.use("/api/datasets", require("./routes/datasets"));
-app.use("/api/paciente", require("./routes/paciente")); // Pacientes
-app.use("/api/paciente/upload", require("./routes/features/upload")); // Archivos multimedia (PDF, imagen, señal)
+app.use("/api/paciente", require("./routes/paciente"));
+app.use("/api/paciente/upload", require("./routes/features/upload"));
 
 // Ruta raíz
-app.get("/", (req, res) => res.send("DataMedAI API funcionando correctamente"));
+app.get("/", (req, res) => {
+  res.send("DataMedAI API funcionando correctamente");
+});
 
-// Iniciar servidor
-app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
+// Iniciar el servidor
+app.listen(PORT, () =>
+  console.log(`Servidor corriendo en puerto ${PORT}`)
+);

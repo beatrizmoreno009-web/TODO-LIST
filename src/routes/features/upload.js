@@ -4,35 +4,55 @@ const Paciente = require("../../models/pacienteModel");
 
 const router = express.Router();
 
-// Configuración: multer en memoria (archivos no se guardan en disco)
+// Configuración: almacenamiento en memoria (sin archivos en disco)
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Campos permitidos para los archivos multimedia
+//  Campos permitidos donde se guardarán los archivos
 const camposPermitidos = ["imagenFondoOjo", "senalPPG", "pdfReport"];
 
-// GET: Obtener info general (sin datos binarios)
-router.get("/:id", async (req, res) => {
+/* ===============================
+    POST - Subir un nuevo archivo
+   =============================== */
+router.post("/:id", upload.single("file"), async (req, res) => {
   try {
-    const paciente = await Paciente.findById(req.params.id).select("-imagenFondoOjo.data -senalPPG.data -pdfReport.data");
-    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
-    res.json(paciente);
+    const { campo } = req.body;
+    if (!camposPermitidos.includes(campo))
+      return res.status(400).json({ message: "Campo inválido" });
+    if (!req.file)
+      return res.status(400).json({ message: "No se subió ningún archivo" });
+
+    const paciente = await Paciente.findById(req.params.id);
+    if (!paciente)
+      return res.status(404).json({ message: "Paciente no encontrado" });
+
+    // Guardar el archivo en MongoDB como Buffer
+    paciente[campo] = {
+      data: req.file.buffer,
+      contentType: req.file.mimetype,
+    };
+
+    await paciente.save();
+    res.status(201).json({ message: `Archivo ${campo} subido correctamente` });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// GET: Descargar archivo multimedia (imagenFondoOjo, senalPPG, pdfReport)
+/* ===============================
+   GET - Descargar archivo multimedia
+   =============================== */
 router.get("/:id/:campo", async (req, res) => {
   try {
     const { id, campo } = req.params;
-    if (!camposPermitidos.includes(campo)) {
+    if (!camposPermitidos.includes(campo))
       return res.status(400).json({ message: "Campo inválido" });
-    }
+
     const paciente = await Paciente.findById(id);
-    if (!paciente || !paciente[campo] || !paciente[campo].data) {
+    if (!paciente || !paciente[campo] || !paciente[campo].data)
       return res.status(404).json({ message: "Archivo no encontrado" });
-    }
+
+    // Enviar archivo binario
     res.contentType(paciente[campo].contentType);
     res.send(paciente[campo].data);
   } catch (err) {
@@ -40,49 +60,25 @@ router.get("/:id/:campo", async (req, res) => {
   }
 });
 
-// POST: Subir un nuevo archivo (imagen, PPG o PDF)
-router.post("/:id", upload.single("file"), async (req, res) => {
-  try {
-    const { campo } = req.body;
-    if (!camposPermitidos.includes(campo)) {
-      return res.status(400).json({ message: "Campo inválido" });
-    }
-    if (!req.file) {
-      return res.status(400).json({ message: "No se subió ningún archivo" });
-    }
-
-    const paciente = await Paciente.findById(req.params.id);
-    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
-
-    paciente[campo] = {
-      data: req.file.buffer,
-      contentType: req.file.mimetype
-    };
-
-    await paciente.save();
-    res.status(201).json({ message: `Archivo ${campo} guardado correctamente` });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// PUT: Actualizar un archivo existente
+/* ===============================
+   PUT - Actualizar archivo existente
+   =============================== */
 router.put("/:id", upload.single("file"), async (req, res) => {
   try {
     const { campo } = req.body;
-    if (!camposPermitidos.includes(campo)) {
+    if (!camposPermitidos.includes(campo))
       return res.status(400).json({ message: "Campo inválido" });
-    }
-    if (!req.file) {
+    if (!req.file)
       return res.status(400).json({ message: "No se subió ningún archivo" });
-    }
 
     const paciente = await Paciente.findById(req.params.id);
-    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
+    if (!paciente)
+      return res.status(404).json({ message: "Paciente no encontrado" });
 
+    // Reemplazar archivo anterior
     paciente[campo] = {
       data: req.file.buffer,
-      contentType: req.file.mimetype
+      contentType: req.file.mimetype,
     };
 
     await paciente.save();
@@ -92,22 +88,24 @@ router.put("/:id", upload.single("file"), async (req, res) => {
   }
 });
 
-// DELETE: Eliminar archivo de un campo específico
+/* ===============================
+   DELETE - Eliminar archivo multimedia
+   =============================== */
 router.delete("/:id", async (req, res) => {
   try {
     const { campo } = req.body;
-    if (!camposPermitidos.includes(campo)) {
+    if (!camposPermitidos.includes(campo))
       return res.status(400).json({ message: "Campo inválido para eliminación" });
-    }
 
     const paciente = await Paciente.findById(req.params.id);
-    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado" });
+    if (!paciente)
+      return res.status(404).json({ message: "Paciente no encontrado" });
 
-    if (!paciente[campo] || !paciente[campo].data) {
-      return res.status(400).json({ message: "No hay archivo que eliminar en este campo" });
-    }
+    if (!paciente[campo] || !paciente[campo].data)
+      return res.status(400).json({ message: "No hay archivo que eliminar" });
 
-    paciente[campo] = undefined;
+    // Eliminar archivo del documento MongoDB
+    paciente[campo] = { data: null, contentType: null };
     await paciente.save();
 
     res.json({ message: `Archivo ${campo} eliminado correctamente` });
