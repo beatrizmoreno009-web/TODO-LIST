@@ -1,66 +1,65 @@
 const express = require("express");
-const User = require("../models/userModel");
-const generateToken = require("../utils/generateToken");
 const bcrypt = require("bcryptjs");
-const { protect } = require("../middleware/authMiddleware");
+const jwt = require("jsonwebtoken");
+const User = require("../models/userModel");
+
 const router = express.Router();
 
-// Registrar usuario (solo administrador debería poder crear usuarios en producción)
-router.post("/register", async (req, res) => {
-  const { nombre, email, contraseña, rol } = req.body;
-  if (!nombre || !email || !contraseña) {
-    return res.status(400).json({ message: "Faltan datos" });
-  }
-  const existe = await User.findOne({ email });
-  if (existe) {
-    return res.status(400).json({ message: "Usuario ya existe" });
-  }
-  const bcrypt = require("bcryptjs");
-  const salt = await bcrypt.genSalt(10);
-  const hashed = await bcrypt.hash(contraseña, salt);
+// Generar token JWT
+const generarToken = (id, rol) => {
+  return jwt.sign({ id, rol }, process.env.JWT_SECRET, { expiresIn: "30m" });
+};
 
-  const user = await User.create({
-    nombre,
-    email,
-    contraseña: hashed,
-    rol: rol || "Usuario",
-  });
-  const token = generateToken(user);
-  res.status(201).json({
-    _id: user._id,
-    nombre: user.nombre,
-    email: user.email,
-    rol: user.rol,
-    token,
-  });
+// Registrar nuevo usuario (solo Admin puede crear médicos)
+router.post("/register", async (req, res) => {
+  try {
+    const { nombre, email, contraseña, rol } = req.body;
+
+    if (!nombre || !email || !contraseña) {
+      return res.status(400).json({ message: "Faltan campos requeridos" });
+    }
+
+    const existe = await User.findOne({ email });
+    if (existe) return res.status(400).json({ message: "Email ya registrado" });
+
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(contraseña, salt);
+
+    const user = new User({ nombre, email, contraseña: hashed, rol });
+    await user.save();
+
+    res.status(201).json({
+      _id: user._id,
+      nombre: user.nombre,
+      email: user.email,
+      rol: user.rol,
+      token: generarToken(user._id, user.rol),
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error al registrar usuario", error: err.message });
+  }
 });
 
 // Login
 router.post("/login", async (req, res) => {
-  const { email, contraseña } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) {
-    return res.status(401).json({ message: "Credenciales inválidas" });
-  }
-  const bcrypt = require("bcryptjs");
-  const valid = await bcrypt.compare(contraseña, user.contraseña);
-  if (!valid) {
-    return res.status(401).json({ message: "Credenciales inválidas" });
-  }
-  const token = generateToken(user);
-  res.json({
-    _id: user._id,
-    nombre: user.nombre,
-    email: user.email,
-    rol: user.rol,
-    token,
-  });
-});
+  try {
+    const { email, contraseña } = req.body;
+    const user = await User.findOne({ email });
 
-// (Opcional) Logout: en JWT no se “invalida” en servidor fácilmente, es más bien borrar el token en cliente
-router.post("/logout", protect, (req, res) => {
-  // Solo para cumplir semánticamente
-  res.json({ message: "Logout exitoso. Borra el token en el cliente." });
+    if (user && (await bcrypt.compare(contraseña, user.contraseña))) {
+      res.json({
+        _id: user._id,
+        nombre: user.nombre,
+        email: user.email,
+        rol: user.rol,
+        token: generarToken(user._id, user.rol),
+      });
+    } else {
+      res.status(401).json({ message: "Credenciales inválidas" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: "Error al iniciar sesión", error: err.message });
+  }
 });
 
 module.exports = router;

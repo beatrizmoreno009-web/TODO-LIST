@@ -22,15 +22,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Rutas de autenticación
-
-app.use("/api/auth", require("./routes/auth")); // <-- ¡IMPORTANTE!
+app.use("/api/auth", require("./routes/auth"));
 
 // Rutas protegidas
-
 app.use("/api/users", require("./routes/users"));
 app.use("/api/datasets", require("./routes/datasets"));
 app.use("/api/paciente", require("./routes/paciente"));
 app.use("/api/paciente/upload", require("./routes/features/upload"));
+app.use("/api/medico", require("./routes/medico"));
+
+// Rutas para administración de médicos (solo para Admin)
+app.use("/api/admin/medicos", require("./routes/adminMedicos"));
 
 // Ruta raíz
 app.get("/", (req, res) => {
@@ -38,6 +40,4 @@ app.get("/", (req, res) => {
 });
 
 // Iniciar el servidor
-app.listen(PORT, () =>
-  console.log(`Servidor corriendo en puerto ${PORT}`)
-);
+app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
