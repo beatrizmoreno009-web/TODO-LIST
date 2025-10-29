@@ -29,7 +29,6 @@ app.use("/api/users", require("./routes/users"));
 app.use("/api/datasets", require("./routes/datasets"));
 app.use("/api/paciente", require("./routes/paciente"));
 app.use("/api/paciente/upload", require("./routes/features/upload"));
-app.use("/api/medico", require("./routes/medico"));
 
 // Rutas para administración de médicos (solo para Admin)
 app.use("/api/admin/medicos", require("./routes/adminMedicos"));
