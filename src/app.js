@@ -22,19 +22,16 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Rutas de autenticación
-<<<<<<< HEAD
-app.use("/api/auth", require("./routes/auth"));
-=======
-
 app.use("/api/auth", require("./routes/auth")); 
->>>>>>> 718bf89072db27853e4b6d465971be4598215fd8
+
 
 // Rutas protegidas
 app.use("/api/users", require("./routes/users"));
 app.use("/api/datasets", require("./routes/datasets"));
 app.use("/api/paciente", require("./routes/paciente"));
 app.use("/api/paciente/upload", require("./routes/features/upload"));
-app.use("/api/medico", require("./routes/medico"));
+app.use("/api/admin/pacientes", require("./routes/adminPacientes"));
+app.use("/api/medico/pacientes", require("./routes/medicoPacientes"));
 
 // Rutas para administración de médicos (solo para Admin)
 app.use("/api/admin/medicos", require("./routes/adminMedicos"));

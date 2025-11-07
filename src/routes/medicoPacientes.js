@@ -4,12 +4,14 @@ const Paciente = require("../models/pacienteModel");
 const { protect } = require("../middleware/authMiddleware");
 const { isOwnerOrAdmin } = require("../middleware/roleMiddleware");
 
-const router = express.Router();// agregar subfijo medico y en el caso de admin agregar su subfijo admin 
+const router = express.Router();
 
-// Crear nuevo paciente — cualquier médico autenticado puede registrar pacientes
+/**
+ * Crear nuevo paciente (solo médico autenticado)
+ */
 router.post("/", protect, async (req, res) => {
   try {
-    // Asignar el médico que lo registra
+    // Asignar médico automáticamente
     req.body.medico = req.user._id;
     const paciente = new Paciente(req.body);
     await paciente.save();
@@ -19,35 +21,30 @@ router.post("/", protect, async (req, res) => {
   }
 });
 
-// Obtener todos los pacientes (solo info médica, sin archivos)
-// — solo usuarios autenticados pueden ver la lista (o admin)
+/**
+ * Obtener todos los pacientes del médico autenticado
+ */
 router.get("/", protect, async (req, res) => {
   try {
-    const query = {};
+    const query = { medico: req.user._id };
 
-    // Si el usuario NO es admin, solo ver sus propios pacientes
-    if (req.user.rol !== "Administrador") {
-      query.medico = req.user._id;
-    }
-
-    // Puedes agregar filtros desde query
     if (req.query.sexo) query.sexo = req.query.sexo;
     if (req.query.edadMin) query.edad = { $gte: Number(req.query.edadMin) };
     if (req.query.edadMax) {
       query.edad = query.edad || {};
       query.edad.$lte = Number(req.query.edadMax);
     }
-    if (req.query.diabetes === "true") query["enfermedades.diabetes"] = true;
 
-    const pacientes = await Paciente.find(query)
-      .select("-imagenFondoOjo -senalPPG -pdfReport");
+    const pacientes = await Paciente.find(query).select("-imagenFondoOjo -senalPPG -pdfReport");
     res.json(pacientes);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Obtener todos los datos de un paciente — solo si eres admin o el médico asignado
+/**
+ * Obtener paciente específico (solo si pertenece al médico)
+ */
 router.get("/:id", protect, isOwnerOrAdmin(async (req) => {
   const paciente = await Paciente.findById(req.params.id);
   return paciente ? paciente.medico : null;
@@ -61,7 +58,9 @@ router.get("/:id", protect, isOwnerOrAdmin(async (req) => {
   }
 });
 
-// Resumen del paciente, sin archivos — solo si eres admin o médico asignado
+/**
+ * Resumen del paciente
+ */
 router.get("/:id/summary", protect, isOwnerOrAdmin(async (req) => {
   const paciente = await Paciente.findById(req.params.id);
   return paciente ? paciente.medico : null;
@@ -82,7 +81,9 @@ router.get("/:id/summary", protect, isOwnerOrAdmin(async (req) => {
   }
 });
 
-// Actualizar información general del paciente — solo admin o médico asignado
+/**
+ * Actualizar paciente (solo médico asignado)
+ */
 router.put("/:id", protect, isOwnerOrAdmin(async (req) => {
   const paciente = await Paciente.findById(req.params.id);
   return paciente ? paciente.medico : null;
@@ -95,7 +96,9 @@ router.put("/:id", protect, isOwnerOrAdmin(async (req) => {
   }
 });
 
-// Eliminar paciente — solo admin o médico asignado
+/**
+ * Eliminar paciente (solo médico asignado)
+ */
 router.delete("/:id", protect, isOwnerOrAdmin(async (req) => {
   const paciente = await Paciente.findById(req.params.id);
   return paciente ? paciente.medico : null;
